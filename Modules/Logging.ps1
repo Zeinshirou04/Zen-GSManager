@@ -13,5 +13,12 @@ function Initialize-Logging {
 function Write-Log {
     param($Message, $Level = "INFO")
     $time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $Script:LogFile -Value "[$time][$Level] $Message"
+    try {
+        Add-Content -Path $Script:LogFile -Value "[$time][$Level] $Message" -ErrorAction Stop
+    }
+    catch {
+        Start-Sleep -Milliseconds 200
+        Add-Content -Path $Script:LogFile -Value "[$time][$Level] $Message"
+    }
+
 }
