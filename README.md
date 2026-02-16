@@ -1,58 +1,32 @@
-```{=html}
-<h1 align="center">
-```
-Game Swap Manager
-```{=html}
-</h1>
-```
-```{=html}
-<p align="center">
-```
-Modular PowerShell storage orchestration tool for managing large game
-libraries across multiple drives.
-```{=html}
-</p>
-```
-```{=html}
-<p align="center">
-```
-`<img src="https://img.shields.io/badge/PowerShell-5.1+-5391FE?logo=powershell&logoColor=white" />`{=html}
-`<img src="https://img.shields.io/badge/Platform-Windows-blue" />`{=html}
-`<img src="https://img.shields.io/badge/License-MIT-green" />`{=html}
-`<img src="https://img.shields.io/badge/Version-1.2.0-orange" />`{=html}
-```{=html}
-</p>
-```
+# Game Swap Manager
 
-------------------------------------------------------------------------
+A modular PowerShell-based storage orchestration tool for managing large
+game libraries across multiple drives.
 
-## Overview
-
-Game Swap Manager is a modular PowerShell-based tool designed to manage
-large game libraries across multiple drives.
-
-It enables controlled swapping between:
+Game Swap Manager allows you to intelligently plan and execute game
+transfers between:
 
 -   **Active Drive (E Slot)** -- Performance drive for currently played
     games\
 -   **Storage Drive (F Slot)** -- Archive drive for unused games
 
-The system performs capacity simulation before execution, ensuring safe
-and predictable batch transfers.
+The system calculates total usable capacity, lets you interactively
+select which games to activate, and safely performs batch transfers
+using Robocopy with full logging and failure protection.
 
 ------------------------------------------------------------------------
 
-## Key Features
+## Features
 
 -   Modular architecture
--   Configuration-driven design
+-   Configuration-driven behavior
 -   Interactive capacity planning
--   Batch execution (no partial swaps)
--   Automatic Active slot flush before activation
+-   Batch execution (no partial swap execution)
+-   Automatic E-slot flush before activation
 -   Smart remaining capacity calculation
--   Full process logging
+-   Full logging of operations, warnings, and errors
 -   Configurable Robocopy behavior
--   Safe failure termination
+-   Safe failure handling (terminates on error)
 
 ------------------------------------------------------------------------
 
@@ -60,55 +34,43 @@ and predictable batch transfers.
 
 1.  Loads all game definitions from the `Games` folder.
 
-2.  Detects which games are currently Active or in Storage.
+2.  Detects current state (games in Active and Storage).
 
-3.  Displays active games.
+3.  Displays currently active games.
 
-4.  Prompts user to select a primary game.
+4.  Prompts user to select a primary game to activate.
 
-5.  Calculates:
+5.  Calculates total usable capacity:
 
-    Total Capacity = Free Space (Active) + Size of Games Currently in
-    Active
+    Total Capacity = Free Space on Active Drive + Size of Games
+    Currently in Active
 
-6.  Allows interactive addition of more games within remaining capacity.
+6.  Allows interactive selection of additional games that fit within
+    remaining capacity.
 
-7.  Displays a planned execution summary.
+7.  Displays a final planned move summary.
 
 8.  Upon confirmation:
 
-    -   Flushes Active → Storage
-    -   Moves selected games Storage → Active
+    -   Flushes all games from Active to Storage.
+    -   Moves selected games from Storage to Active.
 
-9.  Logs everything.
+9.  Logs the entire process.
 
 ------------------------------------------------------------------------
 
 ## Project Structure
 
-    GameSwapManager/
-    │
-    ├── Main.ps1
-    ├── config.ps1
-    │
-    ├── Modules/
-    │   ├── Logging.ps1
-    │   ├── ConsoleUI.ps1
-    │   ├── GameLoader.ps1
-    │   ├── GameState.ps1
-    │   ├── MoveEngine.ps1
-    │   └── SwapWorkflow.ps1
-    │
-    ├── Games/
-    │   ├── Game1.ps1
-    │   ├── Game2.ps1
-    │   └── ...
-    │
-    └── Logs/
+GameSwapManager/ │ ├── Main.ps1 ├── config.ps1 │ ├── Modules/ │ ├──
+Logging.ps1 │ ├── ConsoleUI.ps1 │ ├── GameLoader.ps1 │ ├── GameState.ps1
+│ ├── MoveEngine.ps1 │ └── SwapWorkflow.ps1 │ ├── Games/ │ ├── Game1.ps1
+│ ├── Game2.ps1 │ └── ... │ └── Logs/
 
 ------------------------------------------------------------------------
 
-## Configuration Example
+## Configuration
+
+`config.ps1` must return a hashtable:
 
 ``` powershell
 @{
@@ -132,7 +94,9 @@ and predictable batch transfers.
 
 ------------------------------------------------------------------------
 
-## Game Definition Template
+## Game Definition Format
+
+Each file inside `Games/` must return:
 
 ``` powershell
 param($Config)
@@ -144,9 +108,9 @@ $activeRoot  = "$($active):\SteamLibrary\steamapps\common"
 $storageRoot = "$($storage):\SteamLibrary\steamapps\common"
 
 @{
-    Name  = "Game Name"
-    EPath = Join-Path $activeRoot  "Game Name"
-    FPath = Join-Path $storageRoot "Game Name"
+    Name  = "Counter-Strike Global Offensive"
+    EPath = Join-Path $activeRoot  "Counter-Strike Global Offensive"
+    FPath = Join-Path $storageRoot "Counter-Strike Global Offensive"
 }
 ```
 
@@ -155,18 +119,20 @@ $storageRoot = "$($storage):\SteamLibrary\steamapps\common"
 ## Requirements
 
 -   Windows
--   PowerShell 5.1+
--   Robocopy (built-in)
+-   PowerShell 5.1 or later
+-   Robocopy (included with Windows)
 
 ------------------------------------------------------------------------
 
-## Running
+## Running the Program
+
+Open PowerShell in the project directory:
 
 ``` powershell
 .\Main.ps1
 ```
 
-If execution policy blocks:
+If execution policy blocks scripts:
 
 ``` powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -178,7 +144,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Logs are written to:
 
-    Logs/SwapLog_YYYYMMDD_HHMMSS.log
+Logs/SwapLog_YYYYMMDD_HHMMSS.log
 
 Log levels:
 
@@ -189,14 +155,16 @@ Log levels:
 
 ## Safety Design
 
--   Terminates on Robocopy failure (exit code ≥ 8)
--   No partial execution
--   Capacity planning before any file operations
--   Explicit confirmation required
+-   Script terminates on Robocopy failure (exit code ≥ 8)
+-   No partial swap execution
+-   Capacity planning occurs before any file operations
+-   Confirmation required before execution
 
 ------------------------------------------------------------------------
 
 ## License
+
+### MIT License (Recommended)
 
 MIT License
 
@@ -213,4 +181,10 @@ the following conditions:
 The above copyright notice and this permission notice shall be included
 in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
