@@ -6,9 +6,9 @@ game libraries across multiple drives.
 Game Swap Manager allows you to intelligently plan and execute game
 transfers between:
 
--   **Active Drive (E Slot)** -- Performance drive for currently played
+-   **Active Drive (E/Any Drive Letter Slot)** -- Performance drive for currently played
     games\
--   **Storage Drive (F Slot)** -- Archive drive for unused games
+-   **Storage Drive (F/Any Drive Letter Slot)** -- Archive drive for unused games
 
 The system calculates total usable capacity, lets you interactively
 select which games to activate, and safely performs batch transfers
@@ -56,15 +56,6 @@ using Robocopy with full logging and failure protection.
     -   Moves selected games from Storage to Active.
 
 9.  Logs the entire process.
-
-------------------------------------------------------------------------
-
-## Project Structure
-
-GameSwapManager/ │ ├── Main.ps1 ├── config.ps1 │ ├── Modules/ │ ├──
-Logging.ps1 │ ├── ConsoleUI.ps1 │ ├── GameLoader.ps1 │ ├── GameState.ps1
-│ ├── MoveEngine.ps1 │ └── SwapWorkflow.ps1 │ ├── Games/ │ ├── Game1.ps1
-│ ├── Game2.ps1 │ └── ... │ └── Logs/
 
 ------------------------------------------------------------------------
 
@@ -159,32 +150,3 @@ Log levels:
 -   No partial swap execution
 -   Capacity planning occurs before any file operations
 -   Confirmation required before execution
-
-------------------------------------------------------------------------
-
-## License
-
-### MIT License (Recommended)
-
-MIT License
-
-Copyright (c) 2026 Farras Adhani Zayn
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
