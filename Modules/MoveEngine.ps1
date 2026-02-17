@@ -8,8 +8,9 @@ function Move-Game {
         $wait  = $Config.Robocopy.WaitSeconds
         $mt    = $Config.Robocopy.MultiThread
         $verbose = $Config.Robocopy.Verbose
-        if($null -eq $verbose) { $verbose = $Config.Robocopy.VerboseByDefault }
-        if($null -eq $verbose) { $verbose = $true }
+        if ($null -eq $verbose) { $verbose = $Config.Robocopy.VerboseByDefault }
+        if ($null -eq $verbose) { $verbose = $true }
+        $verbose = [bool]$verbose
 
         $args = @(
             $Source
@@ -26,8 +27,13 @@ function Move-Game {
             $args += "/NDL"
         }
 
-        $rcOutput = robocopy @args
-        $rcOutput | ForEach-Object { Write-Log $_ }
+        robocopy @args | ForEach-Object {
+            if ($verbose) {
+                Write-Host $_
+            }
+
+            Write-Log $_
+        }
 
         if ($LASTEXITCODE -ge 8) {
             throw "Robocopy failed with exit code $LASTEXITCODE"
