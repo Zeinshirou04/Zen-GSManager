@@ -20,5 +20,4 @@ function Write-Log {
         Start-Sleep -Milliseconds 200
         Add-Content -Path $Script:LogFile -Value "[$time][$Level] $Message"
     }
-
 }

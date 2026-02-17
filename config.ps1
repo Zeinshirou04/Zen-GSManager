@@ -14,6 +14,7 @@
         WaitSeconds = 2
         MultiThread = 8
         Verbose = $true
+        VerboseByDefault = $true
     }
 
     Logging = @{

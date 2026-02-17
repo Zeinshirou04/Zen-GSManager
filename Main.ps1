@@ -7,7 +7,7 @@ Get-Command Start-SwapProcess
 
 . "$PSScriptRoot\Modules\ConsoleUI.ps1"
 
-$Config = . "$PSScriptRoot\config.ps1"
+$Config = . "$PSScriptRoot\Config.ps1"
 
 Initialize-Logging
 

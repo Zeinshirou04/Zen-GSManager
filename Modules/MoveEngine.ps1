@@ -7,7 +7,9 @@ function Move-Game {
         $retry = $Config.Robocopy.RetryCount
         $wait  = $Config.Robocopy.WaitSeconds
         $mt    = $Config.Robocopy.MultiThread
-        $verbose = $Config.Robocopy.VerboseByDefault
+        $verbose = $Config.Robocopy.Verbose
+        if($null -eq $verbose) { $verbose = $Config.Robocopy.VerboseByDefault }
+        if($null -eq $verbose) { $verbose = $true }
 
         $args = @(
             $Source
