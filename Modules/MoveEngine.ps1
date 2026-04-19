@@ -2,6 +2,7 @@ function Move-Game {
     param($Source, $Destination, $Name, $Config)
 
     Write-Log "Moving $Name from $Source to $Destination"
+    Write-Host ("Starting move: {0}" -f $Name) -ForegroundColor Cyan
 
     $retry = $Config.Robocopy.RetryCount
     $wait  = $Config.Robocopy.WaitSeconds
@@ -43,6 +44,7 @@ function Move-Game {
     }
 
     Write-Log "Move completed for $Name"
+    Write-Host ("Completed move: {0}" -f $Name) -ForegroundColor Green
 }
 
 

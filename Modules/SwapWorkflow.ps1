@@ -1,8 +1,40 @@
+function Get-UnmanagedActiveEntries {
+    param($Games)
+
+    $managedEPaths = @($Games |
+        Where-Object { $_.EPath } |
+        ForEach-Object { $_.EPath.ToLowerInvariant() })
+
+    $roots = @($Games |
+        Where-Object { $_.EPath } |
+        ForEach-Object { Split-Path $_.EPath -Parent } |
+        Sort-Object -Unique)
+
+    $unmanaged = @()
+
+    foreach ($root in $roots) {
+        if (-not (Test-Path -LiteralPath $root)) {
+            continue
+        }
+
+        $dirs = @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)
+        foreach ($dir in $dirs) {
+            if ($dir.FullName.ToLowerInvariant() -notin $managedEPaths) {
+                $unmanaged += $dir.FullName
+            }
+        }
+    }
+
+    return @($unmanaged | Sort-Object -Unique)
+}
+
 function Show-Status {
     param($Games)
 
     Write-Host ""
-    Write-Host "Active in E:" -ForegroundColor Cyan
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
+    Write-Host "Active Games on E:" -ForegroundColor Cyan
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
 
     $active = @($Games | Where-Object { $_.State -eq "E" })
 
@@ -122,6 +154,29 @@ function Start-SwapProcess {
 
     Show-Status $games
 
+    $unmanagedActive = Get-UnmanagedActiveEntries -Games $games
+    if ($unmanagedActive.Count -gt 0) {
+        $maxExamples = $Config.Safety.MaxUnmanagedExamples
+        if ($null -eq $maxExamples -or $maxExamples -lt 1) {
+            $maxExamples = 5
+        }
+
+        Write-Host "Detected unmanaged folders in active drive that are not mapped in Games/*.ps1:" -ForegroundColor Yellow
+        foreach ($path in ($unmanagedActive | Select-Object -First $maxExamples)) {
+            Write-Host ("  - {0}" -f $path) -ForegroundColor DarkYellow
+        }
+
+        if ($unmanagedActive.Count -gt $maxExamples) {
+            Write-Host ("  ... and {0} more" -f ($unmanagedActive.Count - $maxExamples)) -ForegroundColor DarkYellow
+        }
+
+        Write-Log ("Unmanaged active folders detected: {0}" -f ($unmanagedActive -join "; ")) "WARN"
+
+        if ($Config.Safety.AbortWhenUnmanaged) {
+            throw "Unmanaged active folders were detected. Add them to Games definitions or set Safety.AbortWhenUnmanaged = `$false."
+        }
+    }
+
     $selected = Select-Game $games
     if ($null -eq $selected) {
         Write-Log "User exited without selecting a game"
@@ -195,7 +250,9 @@ function Start-SwapProcess {
     }
 
     Write-Host ""
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
     Write-Host "Planned Moves:" -ForegroundColor Cyan
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
 
     foreach ($g in $toMove) {
         $size = [math]::Round(($g.SizeBytes / 1GB), 2)
@@ -203,6 +260,7 @@ function Start-SwapProcess {
     }
 
     Write-Host ""
+    Write-Host "Ready to execute move plan." -ForegroundColor Green
     Write-Host "Proceed? (Y/N)"
     $confirm = (Read-Host).ToUpper()
 
@@ -229,14 +287,30 @@ function Start-SwapProcess {
         }
     }
 
+    Write-Host ""
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
+    Write-Host "Execution started. Please wait..." -ForegroundColor Green
+    Write-Host ("Flush from E to F: {0} game(s)" -f $toFlush.Count) -ForegroundColor Gray
+    Write-Host ("Move from F to E : {0} game(s)" -f $toMove.Count) -ForegroundColor Gray
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
+
+    $flushIndex = 0
     foreach ($g in $toFlush) {
+        $flushIndex++
+        Write-Host ("[Flush {0}/{1}] {2}" -f $flushIndex, $toFlush.Count, $g.Name) -ForegroundColor Yellow
         Invoke-MoveWithRecovery -Source $g.EPath -Destination $g.FPath -Name $g.Name -Config $Config | Out-Null
     }
 
+    $moveIndex = 0
     foreach ($g in $toMove) {
+        $moveIndex++
+        Write-Host ("[Move  {0}/{1}] {2}" -f $moveIndex, $toMove.Count, $g.Name) -ForegroundColor Cyan
         Invoke-MoveWithRecovery -Source $g.FPath -Destination $g.EPath -Name $g.Name -Config $Config | Out-Null
     }
 
     Write-Log "Script finished successfully"
-    Write-Host "Operation completed."
+    Write-Host ""
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
+    Write-Host "Operation completed successfully." -ForegroundColor Green
+    Write-Host ("=" * 52) -ForegroundColor DarkCyan
 }
