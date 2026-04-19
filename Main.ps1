@@ -3,7 +3,6 @@
 . "$PSScriptRoot\Modules\GameState.ps1"
 . "$PSScriptRoot\Modules\MoveEngine.ps1"
 . "$PSScriptRoot\Modules\SwapWorkflow.ps1"
-Get-Command Start-SwapProcess
 
 . "$PSScriptRoot\Modules\ConsoleUI.ps1"
 
@@ -18,7 +17,9 @@ try {
     Start-SwapProcess -Config $Config
 }
 catch {
-    Write-Log "Fatal error: $_" "ERROR"
-    Write-Host "A fatal error occurred. Check logs."
+    $err = $_.Exception.Message
+    Write-Log "Fatal error: $err" "ERROR"
+    Write-Host "A fatal error occurred: $err" -ForegroundColor Red
+    Write-Host "See logs for full details." -ForegroundColor Yellow
     exit 1
 }

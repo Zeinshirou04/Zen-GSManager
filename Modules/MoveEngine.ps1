@@ -1,51 +1,50 @@
 function Move-Game {
     param($Source, $Destination, $Name, $Config)
 
-    try {
-        Write-Log "Moving $Name from $Source to $Destination"
+    Write-Log "Moving $Name from $Source to $Destination"
+    Write-Host ("Starting move: {0}" -f $Name) -ForegroundColor Cyan
 
-        $retry = $Config.Robocopy.RetryCount
-        $wait  = $Config.Robocopy.WaitSeconds
-        $mt    = $Config.Robocopy.MultiThread
-        $verbose = $Config.Robocopy.Verbose
-        if ($null -eq $verbose) { $verbose = $Config.Robocopy.VerboseByDefault }
-        if ($null -eq $verbose) { $verbose = $true }
-        $verbose = [bool]$verbose
+    $retry = $Config.Robocopy.RetryCount
+    $wait  = $Config.Robocopy.WaitSeconds
+    $mt    = $Config.Robocopy.MultiThread
+    $verbose = $Config.Robocopy.Verbose
+    if ($null -eq $verbose) { $verbose = $Config.Robocopy.VerboseByDefault }
+    if ($null -eq $verbose) { $verbose = $true }
+    $verbose = [bool]$verbose
 
-        $args = @(
-            $Source
-            $Destination
-            "/E"
-            "/MOVE"
-            "/R:$retry"
-            "/W:$wait"
-            "/MT:$mt"
-        )
+    $args = @(
+        $Source
+        $Destination
+        "/E"
+        "/MOVE"
+        "/R:$retry"
+        "/W:$wait"
+        "/MT:$mt"
+    )
 
-        if (-not $verbose) {
-            $args += "/NFL"
-            $args += "/NDL"
-        }
-
-        robocopy @args | ForEach-Object {
-            if ($verbose) {
-                Write-Host $_
-            }
-
-            Write-Log $_
-        }
-
-        if ($LASTEXITCODE -ge 8) {
-            throw "Robocopy failed with exit code $LASTEXITCODE"
-        }
-
-        Write-Log "Move completed for $Name"
+    if (-not $verbose) {
+        $args += "/NFL"
+        $args += "/NDL"
     }
-    catch {
-        Write-Log "Move failed for $Name : $_" "ERROR"
-        Write-Host "Move failed for $Name. Check logs."
-        exit 1
+
+    $output = robocopy @args
+    foreach ($line in $output) {
+        if ($verbose) {
+            Write-Host $line
+        }
+
+        Write-Log $line
     }
+
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ge 8) {
+        $message = "Robocopy failed for $Name with exit code $exitCode"
+        Write-Log $message "ERROR"
+        throw $message
+    }
+
+    Write-Log "Move completed for $Name"
+    Write-Host ("Completed move: {0}" -f $Name) -ForegroundColor Green
 }
 
 
