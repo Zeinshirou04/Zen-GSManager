@@ -164,6 +164,18 @@ function Start-SwapProcess {
     Flush-E $games
 
     foreach ($g in $toMove) {
+        $tempFile = "$Global:PresenceFile.tmp"
+
+        @{
+            state          = "Swapping"
+            details        = "Currently Moving $($g.Name)"
+            smallImageKey  = $g.SmallImageKey
+            smallImageText = $g.Name
+            startTimestamp = (Get-Date).ToUniversalTime().ToString("o")
+        } | ConvertTo-Json -Compress |
+        Set-Content -Path $tempFile -Encoding UTF8 -NoNewline
+
+        Move-Item -Path $tempFile -Destination $Global:PresenceFile -Force
         Move-Game $g.FPath $g.EPath $g.Name $Config
     }
 

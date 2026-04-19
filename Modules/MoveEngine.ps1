@@ -5,8 +5,8 @@ function Move-Game {
         Write-Log "Moving $Name from $Source to $Destination"
 
         $retry = $Config.Robocopy.RetryCount
-        $wait  = $Config.Robocopy.WaitSeconds
-        $mt    = $Config.Robocopy.MultiThread
+        $wait = $Config.Robocopy.WaitSeconds
+        $mt = $Config.Robocopy.MultiThread
         $verbose = $Config.Robocopy.Verbose
         if ($null -eq $verbose) { $verbose = $Config.Robocopy.VerboseByDefault }
         if ($null -eq $verbose) { $verbose = $true }
@@ -31,15 +31,16 @@ function Move-Game {
             if ($verbose) {
                 Write-Host $_
             }
-
-            Write-Log $_
         }
 
         if ($LASTEXITCODE -ge 8) {
             throw "Robocopy failed with exit code $LASTEXITCODE"
         }
 
-        Write-Log "Move completed for $Name"
+        @{
+            state   = "Completed"
+            details = "Succesfully Moved $Name"
+        } | ConvertTo-Json | Set-Content $PresenceFile
     }
     catch {
         Write-Log "Move failed for $Name : $_" "ERROR"
@@ -55,6 +56,18 @@ function Flush-E {
     $activeGames = $Games | Where-Object { $_.State -eq "E" }
 
     foreach ($g in $activeGames) {
+        $tempFile = "$Global:PresenceFile.tmp"
+
+        @{
+            state          = "Swapping"
+            details        = "Currently Moving $($g.Name)"
+            smallImageKey  = $g.SmallImageKey
+            smallImageText = $g.Name
+            startTimestamp = (Get-Date).ToUniversalTime().ToString("o")
+        } | ConvertTo-Json -Compress |
+        Set-Content -Path $tempFile -Encoding UTF8 -NoNewline
+
+        Move-Item -Path $tempFile -Destination $Global:PresenceFile -Force
         Move-Game $g.EPath $g.FPath $g.Name $Config
     }
 }

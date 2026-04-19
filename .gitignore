@@ -3,3 +3,4 @@ Games/*
 !Games/.gitkeep
 Logs/*
 !Logs/.gitkeep
+Helpers/
