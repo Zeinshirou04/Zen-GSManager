@@ -50,8 +50,8 @@ using Robocopy with full logging and failure protection.
     Total Capacity = Free Space on Active Drive + Size of Games
     Currently in Active
 
-7.  Allows interactive selection of additional games that fit within
-    remaining capacity.
+7.  Allows ordered, comma-separated selection of multiple additional
+    games that fit within remaining capacity (for example: `1,3,2`).
 
 8.  Displays a final planned move summary.
 
@@ -89,6 +89,13 @@ using Robocopy with full logging and failure protection.
     }
 }
 ```
+
+You can directly edit variables in `Config.ps1` (for example drive
+letters, safety settings, and Robocopy behavior), then re-run
+`.\Main.ps1` to apply changes.
+
+When a game config is disabled from the menu, its extension is changed
+from `.ps1` to `.disabled`. Re-enabling changes it back to `.ps1`.
 
 ------------------------------------------------------------------------
 

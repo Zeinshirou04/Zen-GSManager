@@ -96,6 +96,104 @@ function Select-Game {
     return $stored[$index]
 }
 
+function Select-AdditionalGames {
+    param(
+        [array]$Candidates,
+        [long]$RemainingCapacity
+    )
+
+    if ($Candidates.Count -eq 0 -or $RemainingCapacity -le 0) {
+        return @()
+    }
+
+    $selected = @()
+    $remaining = $RemainingCapacity
+
+    while ($true) {
+        $available = @($Candidates | Where-Object {
+            $_.Name -notin $selected.Name -and $_.SizeBytes -le $remaining
+        })
+
+        if ($available.Count -eq 0) {
+            break
+        }
+
+        Write-Host ""
+        Write-Host ("Remaining capacity: {0} GB" -f ([math]::Round($remaining / 1GB, 2))) -ForegroundColor Cyan
+        Write-Host "Select additional games in order using comma-separated numbers (example: 1,3,2)." -ForegroundColor Green
+        Write-Host "Press Enter to continue with current selection, or C to cancel."
+        Write-Host ""
+
+        for ($i = 0; $i -lt $available.Count; $i++) {
+            $size = [math]::Round(($available[$i].SizeBytes / 1GB), 2)
+            Write-Host ("[{0}] {1,-25} {2,8} GB" -f ($i + 1), $available[$i].Name, $size)
+        }
+
+        $input = (Read-Host ">").Trim()
+        if ([string]::IsNullOrWhiteSpace($input)) {
+            break
+        }
+
+        if ($input.ToUpper() -eq "C") {
+            Write-Host "Operation cancelled."
+            Write-Log "Operation cancelled during additional selection"
+            return $null
+        }
+
+        $tokens = @($input -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+        if ($tokens.Count -eq 0) {
+            Write-Host "No valid numbers were provided." -ForegroundColor Yellow
+            continue
+        }
+
+        $batch = @()
+        $batchNames = @{}
+        $batchTotal = 0
+        $hasInvalid = $false
+
+        foreach ($token in $tokens) {
+            if (-not ($token -match '^\d+$')) {
+                Write-Host ("Invalid value '{0}'. Use only numbers separated by commas." -f $token) -ForegroundColor Yellow
+                $hasInvalid = $true
+                break
+            }
+
+            $index = [int]$token - 1
+            if ($index -lt 0 -or $index -ge $available.Count) {
+                Write-Host ("Selection '{0}' is out of range." -f $token) -ForegroundColor Yellow
+                $hasInvalid = $true
+                break
+            }
+
+            $choice = $available[$index]
+            if ($batchNames.ContainsKey($choice.Name)) {
+                Write-Host ("'{0}' is duplicated in this input. Keep each number only once." -f $choice.Name) -ForegroundColor Yellow
+                $hasInvalid = $true
+                break
+            }
+
+            $batchNames[$choice.Name] = $true
+            $batch += $choice
+            $batchTotal += $choice.SizeBytes
+        }
+
+        if ($hasInvalid) {
+            continue
+        }
+
+        if ($batchTotal -gt $remaining) {
+            Write-Host ("Selected games exceed remaining capacity ({0} GB)." -f ([math]::Round($remaining / 1GB, 2))) -ForegroundColor Yellow
+            continue
+        }
+
+        $selected += $batch
+        $remaining -= $batchTotal
+        Write-Host ("Added {0} game(s) to move plan." -f $batch.Count) -ForegroundColor Green
+    }
+
+    return @($selected)
+}
+
 function Invoke-MoveWithRecovery {
     param(
         $Source,
@@ -201,52 +299,19 @@ function Invoke-SwapProcess {
     $toMove = @($selected)
     $remaining = $capacity - $selectedSize
 
-    while ($true) {
+    $additionalCandidates = @($games |
+        Where-Object {
+            $_.State -eq "F" -and
+            $_.Name -notin $toMove.Name
+        })
 
-        $candidates = @($games |
-            Where-Object {
-                $_.State -eq "F" -and
-                $_.Name -notin $toMove.Name
-            })
+    $additional = Select-AdditionalGames -Candidates $additionalCandidates -RemainingCapacity $remaining
+    if ($null -eq $additional) {
+        return
+    }
 
-        $available = @($candidates | Where-Object { $_.SizeBytes -le $remaining })
-
-        if ($available.Count -eq 0) {
-            break
-        }
-
-        Write-Host ""
-        Write-Host ("Remaining capacity: {0} GB" -f ([math]::Round($remaining / 1GB, 2))) -ForegroundColor Cyan
-        Write-Host ""
-
-        for ($i = 0; $i -lt $available.Count; $i++) {
-            $size = [math]::Round(($available[$i].SizeBytes / 1GB), 2)
-            Write-Host ("[{0}] {1,-25} {2,8} GB" -f ($i + 1), $available[$i].Name, $size)
-        }
-
-        Write-Host ""
-        Write-Host "Choose number to add, S = Skip, C = Cancel"
-        $input = (Read-Host ">").ToUpper()
-
-        if ($input -eq "S") {
-            break
-        }
-
-        if ($input -eq "C") {
-            Write-Host "Operation cancelled."
-            Write-Log "Operation cancelled during selection"
-            return
-        }
-
-        if ($input -match '^\d+$') {
-            $index = [int]$input - 1
-
-            if ($index -ge 0 -and $index -lt $available.Count) {
-                $chosen = $available[$index]
-                $toMove += $chosen
-                $remaining -= $chosen.SizeBytes
-            }
-        }
+    if ($additional.Count -gt 0) {
+        $toMove += $additional
     }
 
     Write-Host ""
