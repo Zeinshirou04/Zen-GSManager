@@ -138,10 +138,10 @@ function Invoke-MoveWithRecovery {
     }
 }
 
-function Start-SwapProcess {
+function Invoke-SwapProcess {
     param($Config)
 
-    Write-Log "Script started"
+    Write-Log "Swap operation started"
 
     $games = Get-Games $Config
     $games = Get-GameState $games
@@ -180,7 +180,7 @@ function Start-SwapProcess {
     $selected = Select-Game $games
     if ($null -eq $selected) {
         Write-Log "User exited without selecting a game"
-        Write-Host "No game selected. Exiting."
+        Write-Host "No game selected."
         return
     }
 
@@ -308,9 +308,270 @@ function Start-SwapProcess {
         Invoke-MoveWithRecovery -Source $g.FPath -Destination $g.EPath -Name $g.Name -Config $Config | Out-Null
     }
 
-    Write-Log "Script finished successfully"
+    Write-Log "Swap operation finished successfully"
     Write-Host ""
     Write-Host ("=" * 52) -ForegroundColor DarkCyan
     Write-Host "Operation completed successfully." -ForegroundColor Green
     Write-Host ("=" * 52) -ForegroundColor DarkCyan
+}
+
+function Get-GameConfigFiles {
+    $gameFolder = Join-Path $PSScriptRoot "..\Games"
+    if (-not (Test-Path -LiteralPath $gameFolder)) {
+        return @()
+    }
+
+    $files = @(Get-ChildItem -LiteralPath $gameFolder -File | Where-Object { $_.Extension -eq ".ps1" -or $_.Extension -eq ".disabled" })
+    return @($files | Sort-Object Name)
+}
+
+function Show-GameConfigList {
+    $files = Get-GameConfigFiles
+
+    Write-Host ""
+    Write-Host "============================================" -ForegroundColor DarkCyan
+    Write-Host "              Game Configs" -ForegroundColor Cyan
+    Write-Host "============================================" -ForegroundColor DarkCyan
+
+    if ($files.Count -eq 0) {
+        Write-Host "No game config files found in Games/." -ForegroundColor Yellow
+        return
+    }
+
+    for ($i = 0; $i -lt $files.Count; $i++) {
+        $status = if ($files[$i].Extension -eq ".ps1") { "ENABLED" } else { "DISABLED" }
+        Write-Host ("[{0}] {1,-35} {2}" -f ($i + 1), $files[$i].Name, $status)
+    }
+}
+
+function Convert-ToSafeFileName {
+    param([string]$Name)
+
+    $safe = $Name -replace '[^A-Za-z0-9\-_ ]', ''
+    $safe = ($safe -replace '\s+', '_').Trim('_')
+    if ([string]::IsNullOrWhiteSpace($safe)) {
+        $safe = "game_" + (Get-Date -Format "yyyyMMdd_HHmmss")
+    }
+
+    return $safe
+}
+
+function New-GameConfigFile {
+    param(
+        [string]$Name,
+        [string]$GameFolder,
+        [string]$LibraryRelativePath
+    )
+
+    $safeFile = Convert-ToSafeFileName -Name $Name
+    $gameFolderPath = Join-Path $PSScriptRoot "..\Games"
+    $target = Join-Path $gameFolderPath ("{0}.ps1" -f $safeFile)
+
+    if (Test-Path -LiteralPath $target) {
+        throw "A config file already exists for '$safeFile'."
+    }
+
+    $content = @"
+param(`$Config)
+
+`$active  = `$Config.Slots.Active
+`$storage = `$Config.Slots.Storage
+
+`$activeRoot  = "`$(`$active):\\$LibraryRelativePath"
+`$storageRoot = "`$(`$storage):\\$LibraryRelativePath"
+
+@{
+    Name  = "$Name"
+    EPath = Join-Path `$activeRoot  "$GameFolder"
+    FPath = Join-Path `$storageRoot "$GameFolder"
+}
+"@
+
+    Set-Content -LiteralPath $target -Value $content -Encoding UTF8
+    Write-Log "Game config created: $($target)"
+    Write-Host "Config created: $target" -ForegroundColor Green
+}
+
+function Add-GameConfigInteractively {
+    Write-Host ""
+    Write-Host "Add New Game Config" -ForegroundColor Cyan
+    Write-Host "Leave blank to use default library path SteamLibrary\\steamapps\\common"
+
+    $name = (Read-Host "Game display name").Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        Write-Host "Game name is required." -ForegroundColor Yellow
+        return
+    }
+
+    $folder = (Read-Host "Game folder name (exact directory name)").Trim()
+    if ([string]::IsNullOrWhiteSpace($folder)) {
+        Write-Host "Game folder name is required." -ForegroundColor Yellow
+        return
+    }
+
+    $libraryPath = (Read-Host "Library relative path")
+    if ([string]::IsNullOrWhiteSpace($libraryPath)) {
+        $libraryPath = "SteamLibrary\\steamapps\\common"
+    }
+
+    New-GameConfigFile -Name $name -GameFolder $folder -LibraryRelativePath $libraryPath
+}
+
+function Select-ConfigFile {
+    $files = Get-GameConfigFiles
+    if ($files.Count -eq 0) {
+        Write-Host "No game config files found." -ForegroundColor Yellow
+        return $null
+    }
+
+    Show-GameConfigList
+    $choice = (Read-Host "Choose config number (or Q)").Trim()
+    if ($choice.ToUpper() -eq "Q") {
+        return $null
+    }
+
+    if (-not ($choice -match '^\d+$')) {
+        Write-Host "Invalid selection." -ForegroundColor Yellow
+        return $null
+    }
+
+    $index = [int]$choice - 1
+    if ($index -lt 0 -or $index -ge $files.Count) {
+        Write-Host "Selection out of range." -ForegroundColor Yellow
+        return $null
+    }
+
+    return $files[$index]
+}
+
+function Toggle-GameConfigState {
+    $selected = Select-ConfigFile
+    if ($null -eq $selected) {
+        return
+    }
+
+    if ($selected.Extension -eq ".ps1") {
+        $newPath = Join-Path $selected.DirectoryName ($selected.BaseName + ".disabled")
+        if (Test-Path -LiteralPath $newPath) {
+            throw "Cannot disable config because target file already exists: $newPath"
+        }
+
+        Rename-Item -LiteralPath $selected.FullName -NewName ([System.IO.Path]::GetFileName($newPath))
+        Write-Log "Config disabled: $($selected.Name)"
+        Write-Host "Disabled: $($selected.Name)" -ForegroundColor Green
+    }
+    else {
+        $newPath = Join-Path $selected.DirectoryName ($selected.BaseName + ".ps1")
+        if (Test-Path -LiteralPath $newPath) {
+            throw "Cannot enable config because target file already exists: $newPath"
+        }
+
+        Rename-Item -LiteralPath $selected.FullName -NewName ([System.IO.Path]::GetFileName($newPath))
+        Write-Log "Config enabled: $($selected.Name)"
+        Write-Host "Enabled: $([System.IO.Path]::GetFileName($newPath))" -ForegroundColor Green
+    }
+}
+
+function Edit-GameConfigInteractively {
+    $selected = Select-ConfigFile
+    if ($null -eq $selected) {
+        return
+    }
+
+    $tempConfig = @{ Slots = @{ Active = "E"; Storage = "F" } }
+
+    try {
+        $gameObj = & $selected.FullName $tempConfig
+    }
+    catch {
+        throw "Unable to load config '$($selected.Name)' for editing."
+    }
+
+    $currentName = $gameObj.Name
+    $currentFolder = Split-Path $gameObj.EPath -Leaf
+
+    $currentLibraryPath = "SteamLibrary\\steamapps\\common"
+    $prefix = "E:\\"
+    if ($gameObj.EPath -like "$prefix*") {
+        $relative = $gameObj.EPath.Substring($prefix.Length)
+        $parts = $relative -split '\\'
+        if ($parts.Length -gt 1) {
+            $currentLibraryPath = ($parts[0..($parts.Length - 2)] -join "\\")
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Editing $($selected.Name) (leave blank to keep current value)" -ForegroundColor Cyan
+
+    $newName = Read-Host "Game display name [$currentName]"
+    if ([string]::IsNullOrWhiteSpace($newName)) { $newName = $currentName }
+
+    $newFolder = Read-Host "Game folder name [$currentFolder]"
+    if ([string]::IsNullOrWhiteSpace($newFolder)) { $newFolder = $currentFolder }
+
+    $newLibraryPath = Read-Host "Library relative path [$currentLibraryPath]"
+    if ([string]::IsNullOrWhiteSpace($newLibraryPath)) { $newLibraryPath = $currentLibraryPath }
+
+    $content = @"
+param(`$Config)
+
+`$active  = `$Config.Slots.Active
+`$storage = `$Config.Slots.Storage
+
+`$activeRoot  = "`$(`$active):\\$newLibraryPath"
+`$storageRoot = "`$(`$storage):\\$newLibraryPath"
+
+@{
+    Name  = "$newName"
+    EPath = Join-Path `$activeRoot  "$newFolder"
+    FPath = Join-Path `$storageRoot "$newFolder"
+}
+"@
+
+    Set-Content -LiteralPath $selected.FullName -Value $content -Encoding UTF8
+    Write-Log "Config edited: $($selected.Name)"
+    Write-Host "Updated: $($selected.Name)" -ForegroundColor Green
+}
+
+function Start-SwapProcess {
+    param($Config)
+
+    Write-Log "Script started"
+
+    while ($true) {
+        Write-Host ""
+        Write-Host "============================================" -ForegroundColor DarkCyan
+        Write-Host "                 Main Menu" -ForegroundColor Cyan
+        Write-Host "============================================" -ForegroundColor DarkCyan
+        Write-Host "[1] Move games"
+        Write-Host "[2] Enable/Disable game config"
+        Write-Host "[3] Add game config"
+        Write-Host "[4] Edit existing config"
+        Write-Host "[5] View config list"
+        Write-Host "[Q] Quit"
+
+        $choice = (Read-Host "Choose an option").Trim().ToUpper()
+
+        try {
+            switch ($choice) {
+                "1" { Invoke-SwapProcess -Config $Config }
+                "2" { Toggle-GameConfigState }
+                "3" { Add-GameConfigInteractively }
+                "4" { Edit-GameConfigInteractively }
+                "5" { Show-GameConfigList }
+                "Q" {
+                    Write-Log "User exited from main menu"
+                    return
+                }
+                default {
+                    Write-Host "Invalid option, choose 1-5 or Q." -ForegroundColor Yellow
+                }
+            }
+        }
+        catch {
+            $errorText = $_.Exception.Message
+            Write-Log "Menu operation failed: $errorText" "ERROR"
+            Write-Host "Operation failed: $errorText" -ForegroundColor Red
+        }
+    }
 }

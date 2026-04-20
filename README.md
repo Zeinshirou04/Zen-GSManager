@@ -21,6 +21,9 @@ using Robocopy with full logging and failure protection.
 -   Modular architecture
 -   Configuration-driven behavior
 -   Interactive capacity planning
+-   Main menu for move/config management
+-   Enable/disable game config files without deleting
+-   Add/edit game config files directly from terminal
 -   Batch execution (no partial swap execution)
 -   Automatic E-slot flush before activation
 -   Smart remaining capacity calculation
@@ -38,24 +41,28 @@ using Robocopy with full logging and failure protection.
 
 3.  Displays currently active games.
 
-4.  Prompts user to select a primary game to activate.
+4.  Opens a menu with actions (move games, enable/disable configs, add config, edit config).
 
-5.  Calculates total usable capacity:
+5.  For move operations, prompts user to select a primary game to activate.
+
+6.  Calculates total usable capacity:
 
     Total Capacity = Free Space on Active Drive + Size of Games
     Currently in Active
 
-6.  Allows interactive selection of additional games that fit within
+7.  Allows interactive selection of additional games that fit within
     remaining capacity.
 
-7.  Displays a final planned move summary.
+8.  Displays a final planned move summary.
 
-8.  Upon confirmation:
+9.  Upon confirmation:
 
     -   Flushes all games from Active to Storage.
     -   Moves selected games from Storage to Active.
 
-9.  Logs the entire process.
+10. Logs the entire process.
+
+11. Waits for Enter before closing.
 
 ------------------------------------------------------------------------
 
