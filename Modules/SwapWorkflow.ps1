@@ -121,7 +121,7 @@ function Select-AdditionalGames {
         Write-Host ""
         Write-Host ("Remaining capacity: {0} GB" -f ([math]::Round($remaining / 1GB, 2))) -ForegroundColor Cyan
         Write-Host "Select additional games in order using comma-separated numbers (example: 1,3,2)." -ForegroundColor Green
-        Write-Host "Press Enter to continue with current selection, or C to cancel."
+        Write-Host "Type S to skip adding more games, press Enter to continue, or C to cancel."
         Write-Host ""
 
         for ($i = 0; $i -lt $available.Count; $i++) {
@@ -130,6 +130,10 @@ function Select-AdditionalGames {
         }
 
         $input = (Read-Host ">").Trim()
+        if ($input.ToUpper() -eq "S") {
+            break
+        }
+
         if ([string]::IsNullOrWhiteSpace($input)) {
             break
         }
@@ -409,6 +413,27 @@ function Show-GameConfigList {
     }
 }
 
+function Show-ProgramConfig {
+    param($Config)
+
+    Write-Host ""
+    Write-Host "============================================" -ForegroundColor DarkCyan
+    Write-Host "              Program Config" -ForegroundColor Cyan
+    Write-Host "============================================" -ForegroundColor DarkCyan
+
+    Write-Host ("Slots.Active                : {0}" -f $Config.Slots.Active)
+    Write-Host ("Slots.Storage               : {0}" -f $Config.Slots.Storage)
+    Write-Host ("Safety.AbortWhenUnmanaged   : {0}" -f $Config.Safety.AbortWhenUnmanaged)
+    Write-Host ("Safety.MaxUnmanagedExamples : {0}" -f $Config.Safety.MaxUnmanagedExamples)
+    Write-Host ("Robocopy.RetryCount         : {0}" -f $Config.Robocopy.RetryCount)
+    Write-Host ("Robocopy.WaitSeconds        : {0}" -f $Config.Robocopy.WaitSeconds)
+    Write-Host ("Robocopy.MultiThread        : {0}" -f $Config.Robocopy.MultiThread)
+    Write-Host ("Robocopy.Verbose            : {0}" -f $Config.Robocopy.Verbose)
+    Write-Host ("Robocopy.VerboseByDefault   : {0}" -f $Config.Robocopy.VerboseByDefault)
+    Write-Host ("Logging.LogFolder           : {0}" -f $Config.Logging.LogFolder)
+    Write-Host ("Application.Version         : {0}" -f $Config.Application.Version)
+}
+
 function Convert-ToSafeFileName {
     param([string]$Name)
 
@@ -612,7 +637,8 @@ function Start-SwapProcess {
         Write-Host "[2] Enable/Disable game config"
         Write-Host "[3] Add game config"
         Write-Host "[4] Edit existing config"
-        Write-Host "[5] View config list"
+        Write-Host "[5] View program config"
+        Write-Host "[6] View game config list"
         Write-Host "[Q] Quit"
 
         $choice = (Read-Host "Choose an option").Trim().ToUpper()
@@ -623,13 +649,14 @@ function Start-SwapProcess {
                 "2" { Toggle-GameConfigState }
                 "3" { Add-GameConfigInteractively }
                 "4" { Edit-GameConfigInteractively }
-                "5" { Show-GameConfigList }
+                "5" { Show-ProgramConfig -Config $Config }
+                "6" { Show-GameConfigList }
                 "Q" {
                     Write-Log "User exited from main menu"
                     return
                 }
                 default {
-                    Write-Host "Invalid option, choose 1-5 or Q." -ForegroundColor Yellow
+                    Write-Host "Invalid option, choose 1-6 or Q." -ForegroundColor Yellow
                 }
             }
         }
