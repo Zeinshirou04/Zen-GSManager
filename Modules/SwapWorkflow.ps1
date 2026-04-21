@@ -103,7 +103,10 @@ function Select-AdditionalGames {
     )
 
     if ($Candidates.Count -eq 0 -or $RemainingCapacity -le 0) {
-        return @()
+        return [pscustomobject]@{
+            Cancelled = $false
+            Selected  = @()
+        }
     }
 
     $selected = @()
@@ -141,7 +144,10 @@ function Select-AdditionalGames {
         if ($input.ToUpper() -eq "C") {
             Write-Host "Operation cancelled."
             Write-Log "Operation cancelled during additional selection"
-            return $null
+            return [pscustomobject]@{
+                Cancelled = $true
+                Selected  = @()
+            }
         }
 
         $tokens = @($input -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
@@ -195,7 +201,10 @@ function Select-AdditionalGames {
         Write-Host ("Added {0} game(s) to move plan." -f $batch.Count) -ForegroundColor Green
     }
 
-    return @($selected)
+    return [pscustomobject]@{
+        Cancelled = $false
+        Selected  = @($selected)
+    }
 }
 
 function Invoke-MoveWithRecovery {
@@ -309,11 +318,12 @@ function Invoke-SwapProcess {
             $_.Name -notin $toMove.Name
         })
 
-    $additional = Select-AdditionalGames -Candidates $additionalCandidates -RemainingCapacity $remaining
-    if ($null -eq $additional) {
+    $additionalResult = Select-AdditionalGames -Candidates $additionalCandidates -RemainingCapacity $remaining
+    if ($additionalResult.Cancelled) {
         return
     }
 
+    $additional = @($additionalResult.Selected)
     if ($additional.Count -gt 0) {
         $toMove += $additional
     }
